@@ -32,10 +32,13 @@ def queryGRD(aoi, last_date):
     products = api.query(aoi,
                              producttype='GRD',
                              platformname='Sentinel-1',
+                             orbitdirection='DESCENDING',
                              date=(last_date, date.today()))
     
     # Convert to dataframe, and then sort by ingestion date
     products_df = api.to_dataframe(products)
+    if products_df.empty is True:
+        return []
     products_df = products_df.sort_values('ingestiondate', ascending=False)
     
     # Add in a column with rounded footprint values
@@ -47,6 +50,7 @@ def queryGRD(aoi, last_date):
     
     # Finally return all the footprints
     return products_df.footprint
+
 
 world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
 brazil = world[world.name == "Brazil"]
@@ -72,19 +76,18 @@ def onselect_function(eclick, erelease):
     botleft = [extent[0], extent[3]]
     botright = [extent[1], extent[3]]
     
-    print(rect_selector.geometry)
+    # print(rect_selector.geometry)
     
-    poly = Polygon([topleft, topright, botleft, botright])
-    print(poly.wkt)
- 
-    # Zoom the selected part
-    # Set xlim range for plot as xmin to xmax
-    # of rectangle selector box.
-    # plt.xlim(extent[0], extent[1])
-     
-    # Set ylim range for plot as ymin to ymax
-    # of rectangle selector box.
-    # plt.ylim(extent[2], extent[3])
+    poly = Polygon([topleft, topright, botright, botleft])
+    # print(poly.wkt)
+    
+    products_footprint = queryGRD(poly.wkt, date(2022,9,1))
+    print(len(products_footprint))
+    gpd_footprints = gpd.GeoSeries.from_wkt([*products_footprint])
+    gpd_query = gpd.GeoSeries.from_wkt([poly.wkt])
+    gpd_footprints.boundary.plot(ax=ax, color='blue', alpha=0.3)
+    gpd_query.plot(ax=ax, color='red', alpha=0.3)
+
 
 rect_selector = RectangleSelector(
     ax, onselect_function, drawtype='box', button=[1])
